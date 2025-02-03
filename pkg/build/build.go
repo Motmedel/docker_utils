@@ -12,6 +12,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"io"
+	"strings"
 )
 
 const DockerignoreFilename = ".dockerignore"
@@ -73,6 +74,8 @@ func Build(
 	var rawLine []byte
 	var buildError *jsonmessage.JSONError
 
+	var previousMessage *jsonmessage.JSONMessage
+
 	scanner := bufio.NewScanner(imageBuildResponse.Body)
 	for scanner.Scan() {
 		rawLine = scanner.Bytes()
@@ -91,6 +94,8 @@ func Build(
 			break
 		}
 
+		previousMessage = &message
+
 		if callback != nil {
 			callback(rawLine, &message)
 		}
@@ -100,7 +105,19 @@ func Build(
 	}
 
 	if buildError != nil {
-		return &dockerUtilsErrors.BuildError{Message: buildError.Message, Code: buildError.Code, Raw: rawLine}
+		var cause error = nil
+		if previousMessage != nil {
+			if stream := strings.TrimSpace(previousMessage.Stream); stream != "" {
+				cause = &dockerUtilsErrors.BuildError{Message: stream}
+			}
+		}
+
+		return &dockerUtilsErrors.BuildError{
+			Message: buildError.Message,
+			Cause:   cause,
+			Code:    buildError.Code,
+			Raw:     rawLine,
+		}
 	}
 
 	return nil

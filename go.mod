@@ -3,7 +3,7 @@ module github.com/Motmedel/docker_utils
 go 1.23.5
 
 require (
-	github.com/Motmedel/utils_go v0.0.83
+	github.com/Motmedel/utils_go v0.0.84
 	github.com/docker/docker v27.5.1+incompatible
 )
 
