@@ -15,6 +15,7 @@ import (
 )
 
 const DockerignoreFilename = ".dockerignore"
+const DockerfileFilename = "Dockerfile"
 
 func GetDockerIgnorePatternsWithPath(archive motmedelTarTypes.Archive, path string) []string {
 	if len(archive) == 0 {
