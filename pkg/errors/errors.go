@@ -1,28 +1,28 @@
 package errors
 
 import (
+	"errors"
 	"strconv"
 )
 
-type BuildError struct {
+var (
+	ErrNilContextReader = errors.New("nil context reader")
+	ErrNilClient        = errors.New("nil client")
+)
+
+type DockerError struct {
 	Message string
 	Code    int
 	Raw     []byte
-	Cause   error
 }
 
-func (buildError *BuildError) Error() string {
-	return buildError.Message
+func (dockerError *DockerError) Error() string {
+	return dockerError.Message
 }
 
-func (buildError *BuildError) GetCode() string {
-	return strconv.Itoa(buildError.Code)
-}
-
-func (buildError *BuildError) Unwrap() error {
-	return buildError.Cause
-}
-
-func (buildError *BuildError) GetCause() error {
-	return buildError.Cause
+func (dockerError *DockerError) GetCode() string {
+	if dockerError.Code == 0 {
+		return ""
+	}
+	return strconv.Itoa(dockerError.Code)
 }

@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
+	"github.com/Motmedel/docker_utils/pkg/docker_utils"
 	dockerUtilsErrors "github.com/Motmedel/docker_utils/pkg/errors"
 	motmedelErrors "github.com/Motmedel/utils_go/pkg/errors"
 	motmedelTarTypes "github.com/Motmedel/utils_go/pkg/tar/types"
@@ -12,7 +12,6 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"io"
-	"strings"
 )
 
 const DockerignoreFilename = ".dockerignore"
@@ -45,21 +44,22 @@ func GetDockerIgnorePatterns(archive motmedelTarTypes.Archive) []string {
 	return GetDockerIgnorePatternsWithPath(archive, DockerignoreFilename)
 }
 
-func Build(
+func BuildWithClient(
+	dockerClient *client.Client,
 	contextReader io.Reader,
 	options *dockerTypes.ImageBuildOptions,
 	callback func([]byte, *jsonmessage.JSONMessage),
 ) error {
-	if options == nil {
-		options = &dockerTypes.ImageBuildOptions{}
+	if dockerClient == nil {
+		return dockerUtilsErrors.ErrNilClient
 	}
 
-	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return &motmedelErrors.CauseError{
-			Message: "An error occurred when creating a Docker client.",
-			Cause:   err,
-		}
+	if contextReader == nil {
+		return dockerUtilsErrors.ErrNilContextReader
+	}
+
+	if options == nil {
+		options = &dockerTypes.ImageBuildOptions{}
 	}
 
 	imageBuildResponse, err := dockerClient.ImageBuild(context.Background(), contextReader, *options)
@@ -71,54 +71,25 @@ func Build(
 	}
 	defer imageBuildResponse.Body.Close()
 
-	var rawLine []byte
-	var buildError *jsonmessage.JSONError
+	return docker_utils.ScanOutput(imageBuildResponse.Body, callback)
+}
 
-	var previousMessage *jsonmessage.JSONMessage
-
-	scanner := bufio.NewScanner(imageBuildResponse.Body)
-	for scanner.Scan() {
-		rawLine = scanner.Bytes()
-
-		var message jsonmessage.JSONMessage
-		if err := json.Unmarshal(rawLine, &message); err != nil {
-			return &motmedelErrors.InputError{
-				Message: "An error occurred when unmarshalling build output.",
-				Cause:   err,
-				Input:   rawLine,
-			}
-		}
-
-		if messageError := message.Error; messageError != nil {
-			buildError = messageError
-			break
-		}
-
-		previousMessage = &message
-
-		if callback != nil {
-			callback(rawLine, &message)
-		}
-	}
-	if err := scanner.Err(); err != nil && err != io.EOF {
-		return &motmedelErrors.CauseError{Message: "An error occurred when scanning the build output.", Cause: err}
+func Build(
+	contextReader io.Reader,
+	options *dockerTypes.ImageBuildOptions,
+	callback func([]byte, *jsonmessage.JSONMessage),
+) error {
+	if contextReader == nil {
+		return dockerUtilsErrors.ErrNilContextReader
 	}
 
-	if buildError != nil {
-		var cause error = nil
-		if previousMessage != nil {
-			if stream := strings.TrimSpace(previousMessage.Stream); stream != "" {
-				cause = &dockerUtilsErrors.BuildError{Message: stream}
-			}
-		}
-
-		return &dockerUtilsErrors.BuildError{
-			Message: buildError.Message,
-			Cause:   cause,
-			Code:    buildError.Code,
-			Raw:     rawLine,
+	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return &motmedelErrors.CauseError{
+			Message: "An error occurred when creating the Docker client.",
+			Cause:   err,
 		}
 	}
 
-	return nil
+	return BuildWithClient(dockerClient, contextReader, options, callback)
 }
