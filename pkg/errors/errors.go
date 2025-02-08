@@ -6,8 +6,10 @@ import (
 )
 
 var (
-	ErrNilContextReader = errors.New("nil context reader")
-	ErrNilClient        = errors.New("nil client")
+	ErrNilContextReader  = errors.New("nil context reader")
+	ErrNilClient         = errors.New("nil client")
+	ErrNilToken          = errors.New("nil token")
+	ErrEmptyRegistryHost = errors.New("empty registry host")
 )
 
 type DockerError struct {
