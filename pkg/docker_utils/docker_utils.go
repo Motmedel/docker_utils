@@ -7,6 +7,7 @@ import (
 	motmedelErrors "github.com/Motmedel/utils_go/pkg/errors"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"io"
+	"strings"
 )
 
 func ScanOutput(outputReader io.Reader, callback func([]byte, *jsonmessage.JSONMessage)) error {
@@ -16,6 +17,9 @@ func ScanOutput(outputReader io.Reader, callback func([]byte, *jsonmessage.JSONM
 
 	var rawLine []byte
 	var dockerError *jsonmessage.JSONError
+
+	var penultimateMessage *jsonmessage.JSONMessage
+	var lastMessage *jsonmessage.JSONMessage
 
 	scanner := bufio.NewScanner(outputReader)
 	for scanner.Scan() {
@@ -35,6 +39,9 @@ func ScanOutput(outputReader io.Reader, callback func([]byte, *jsonmessage.JSONM
 			break
 		}
 
+		penultimateMessage = lastMessage
+		lastMessage = &message
+
 		if callback != nil {
 			callback(rawLine, &message)
 		}
@@ -44,9 +51,31 @@ func ScanOutput(outputReader io.Reader, callback func([]byte, *jsonmessage.JSONM
 	}
 
 	if dockerError != nil {
+		var cause *dockerUtilsErrors.DockerError
+
+		if lastMessage != nil {
+			lastLine := lastMessage.Stream
+			if strings.HasPrefix(lastLine, "\u001b[91m") {
+				cause = &dockerUtilsErrors.DockerError{
+					Message: strings.TrimPrefix(
+						strings.TrimSuffix(lastLine, "\u001b[0m"),
+						"\u001b[91m",
+					),
+				}
+
+				if penultimateMessage != nil {
+					penultimateLine := penultimateMessage.Stream
+					if strings.HasPrefix(penultimateLine, "Step ") {
+						cause.Step = penultimateLine
+					}
+				}
+			}
+		}
+
 		return &dockerUtilsErrors.DockerError{
 			Message: dockerError.Message,
 			Code:    dockerError.Code,
+			Cause:   cause,
 			Raw:     rawLine,
 		}
 	}

@@ -13,6 +13,8 @@ var (
 type DockerError struct {
 	Message string
 	Code    int
+	Step    string
+	Cause   error
 	Raw     []byte
 }
 
@@ -25,4 +27,12 @@ func (dockerError *DockerError) GetCode() string {
 		return ""
 	}
 	return strconv.Itoa(dockerError.Code)
+}
+
+func (dockerError *DockerError) Unwrap() error {
+	return dockerError.Cause
+}
+
+func (dockerError *DockerError) GetCause() error {
+	return dockerError.Cause
 }
