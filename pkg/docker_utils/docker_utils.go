@@ -51,9 +51,18 @@ func ScanOutput(outputReader io.Reader, callback func([]byte, *jsonmessage.JSONM
 	}
 
 	if dockerError != nil {
-		var cause *dockerUtilsErrors.DockerError
+		var cause error
 
 		if lastMessage != nil {
+			var step string
+
+			if penultimateMessage != nil {
+				penultimateLine := penultimateMessage.Stream
+				if strings.HasPrefix(penultimateLine, "Step ") {
+					step = penultimateLine
+				}
+			}
+
 			lastLine := lastMessage.Stream
 			if strings.HasPrefix(lastLine, "\u001b[91m") {
 				cause = &dockerUtilsErrors.DockerError{
@@ -61,13 +70,7 @@ func ScanOutput(outputReader io.Reader, callback func([]byte, *jsonmessage.JSONM
 						strings.TrimSuffix(lastLine, "\u001b[0m"),
 						"\u001b[91m",
 					),
-				}
-
-				if penultimateMessage != nil {
-					penultimateLine := penultimateMessage.Stream
-					if strings.HasPrefix(penultimateLine, "Step ") {
-						cause.Step = penultimateLine
-					}
+					Step: step,
 				}
 			}
 		}
