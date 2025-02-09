@@ -52,6 +52,7 @@ func ScanOutput(outputReader io.Reader, callback func([]byte, *jsonmessage.JSONM
 
 	if dockerError != nil {
 		var cause error
+		var outputStep string
 
 		if lastMessage != nil {
 			var step string
@@ -72,6 +73,8 @@ func ScanOutput(outputReader io.Reader, callback func([]byte, *jsonmessage.JSONM
 					),
 					Step: step,
 				}
+			} else if strings.HasPrefix(lastLine, "Step ") {
+				outputStep = lastLine
 			}
 		}
 
@@ -79,6 +82,7 @@ func ScanOutput(outputReader io.Reader, callback func([]byte, *jsonmessage.JSONM
 			Message: dockerError.Message,
 			Code:    dockerError.Code,
 			Cause:   cause,
+			Step:    outputStep,
 			Raw:     rawLine,
 		}
 	}
