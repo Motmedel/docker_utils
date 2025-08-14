@@ -4,7 +4,7 @@ go 1.23.5
 
 require (
 	github.com/Motmedel/utils_go v0.0.90
-	github.com/docker/docker v27.5.1+incompatible
+	github.com/docker/docker v28.0.0+incompatible
 	golang.org/x/oauth2 v0.26.0
 )
 
